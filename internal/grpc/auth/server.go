@@ -9,13 +9,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+//! Здесь описывается логика работы req-res хэндлеров
+
 const (
 	emtpyEmail    = ""
 	emtpyPassword = ""
 	emptyValue    = 0
 )
 
-type Ayth interface {
+type Auth interface {
 	Login(ctx context.Context, email string, password string, appID int) (token string, err error)
 	RegisterNewUser(ctx context.Context, email string, password string) (userID int64, err error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
@@ -23,7 +25,7 @@ type Ayth interface {
 
 type serverAPI struct {
 	ssov1.UnimplementedAuthServer
-	auth Ayth
+	auth Auth
 }
 
 func Register(gRPC *grpc.Server, auth Ayth) {
@@ -45,15 +47,33 @@ func (s *serverAPI) Login(ctx context.Context, req *ssov1.LoginRequest) (*ssov1.
 }
 
 func (s *serverAPI) Register(ctx context.Context, req *ssov1.RegisterRequest) (*ssov1.RegisterResponse, error) {
-	panic("implement me")
+	if err := validateRegister(req); err != nil {
+		return nil, err
+	}
+
+	userID, err := s.auth.RegisterNewUser(ctx, req.GetEmail(), req.GetPassword())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "internal error")
+	}
+
+	return &ssov1.RegisterResponse{UserId: userID}, nil
 }
 
 func (s *serverAPI) IsAdmin(ctx context.Context, req *ssov1.IsAdminRequest) (*ssov1.IsAdminResponse, error) {
-	panic("implement me")
+	if err := validateIsAdmin(req); err != nil {
+		return nil, err
+	}
+
+	isAdmin, err := s.auth.IsAdmin(ctx, req.GetUserId())
+	if err != nil {
+		return nil, status.Error(codes.Internal, "internal error")
+	}
+
+	return &ssov1.IsAdminResponse{IsAdmin: isAdmin}, nil
 }
 
+// ! Функции для валидации данных (ручные)
 func validateLogin(req *ssov1.LoginRequest) error {
-	// Валидация данных (ручная)
 	if req.GetEmail() == emtpyEmail {
 		return status.Error(codes.InvalidArgument, "invalid argument")
 	}
@@ -63,6 +83,26 @@ func validateLogin(req *ssov1.LoginRequest) error {
 	}
 
 	if req.AppId == emptyValue {
+		return status.Error(codes.InvalidArgument, "invalid argument")
+	}
+
+	return nil
+}
+
+func validateRegister(req *ssov1.RegisterRequest) error {
+	if req.GetEmail() == emtpyEmail {
+		return status.Error(codes.InvalidArgument, "invalid argument")
+	}
+
+	if req.GetPassword() == emtpyPassword {
+		return status.Error(codes.InvalidArgument, "invalid argument")
+	}
+
+	return nil
+}
+
+func validateIsAdmin(req *ssov1.IsAdminRequest) error {
+	if req.GetUserId() == emptyValue {
 		return status.Error(codes.InvalidArgument, "invalid argument")
 	}
 
