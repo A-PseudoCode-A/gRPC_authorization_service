@@ -12,6 +12,7 @@ type App struct {
 }
 
 func New(log *slog.Logger, grpcPort int, storagePath string, tokenTTL time.Duration) *App {
+	// Инициализация storage и service
 	gRPCApp := grpcapp.New(log, grpcPort)
 
 	return &App{
